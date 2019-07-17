@@ -91,6 +91,12 @@ module TGBotBase
         @bot.api.send_message(chat_id: chat_id, text: text)
       end
     end
+
+    def send_message_answer(to_message:, text:)
+      send_message(chat_id: to_message.chat_id,
+                   text: text,
+                   source_time: to_message.date)
+    end
     
     protected
     
