@@ -150,7 +150,10 @@ module TGBotBase
     
     attr_reader :database_file
     
-    def initialize(logger:, config_path: nil, mute_before: nil)
+    def initialize(logger:,
+                   config_path: nil,
+                   config_name: nil,
+                   mute_before: nil)
       super
       @database_file = config['database_file']
     end
