@@ -36,9 +36,10 @@ module TGBotBase
     end
     
     def run
-      pid_file_block = PidFileBlock.new(piddir: @config['pidfile_dir'],
-                                        pidfile: @config['pidfile_name'])
-      pid_file_block.run do
+      pid_file_block_app =
+        PidFileBlock::Application.new(piddir: @config['pidfile_dir'],
+                                      pidfile: @config['pidfile_name'])
+      pid_file_block_app.run do
         while true
           begin
             Telegram::Bot::Client.run(config['telegram_token'],
@@ -133,7 +134,7 @@ module TGBotBase
     private
     
     def get_config_file_path(config_file_name)
-      [__dir__, '/usr/local/etc/', '/etc/'].each do |config_dir|
+      ['.', '/usr/local/etc/', '/etc/'].each do |config_dir|
         config_file_path = File.join(config_dir, config_file_name)
         if File.exist?(config_file_path)
           return config_file_path
