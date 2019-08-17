@@ -1,3 +1,6 @@
+require "pid_file_block"
+require "pid_file_block/application"
+
 module TGBotBase
   
   class ConfigFileNotFound < RuntimeError
@@ -27,34 +30,42 @@ module TGBotBase
       @bot_name = @config['bot_name']
     end
 
+    def kill_by_pidfile
+      PidFileBlock.new(piddir: @config['pidfile_dir'],
+                       pidfile: @config['pidfile_name']).kill
+    end
+    
     def run
-      while true
-        begin
-          Telegram::Bot::Client.run(config['telegram_token'],
-                                    logger: @logger) do |bot|
-            @bot = bot
-            bot_user_data = bot.api.get_me
-            @bot_user_id = nil
-            if !bot_user_data || !bot_user_data['ok']
-              self.logger.error("Can't get bot id");
-              break;
-            else
-              @bot_user_id = bot_user_data['result']['id'].to_i;
+      PidFileBlock::Application.run(piddir: @config['pidfile_dir'],
+                                    pidfile: @config['pidfile_name']) do
+        while true
+          begin
+            Telegram::Bot::Client.run(config['telegram_token'],
+                                      logger: @logger) do |bot|
+              @bot = bot
+              bot_user_data = bot.api.get_me
+              @bot_user_id = nil
+              if !bot_user_data || !bot_user_data['ok']
+                self.logger.error("Can't get bot id");
+                break;
+              else
+                @bot_user_id = bot_user_data['result']['id'].to_i;
+              end
+              
+              @bot.listen do |message|
+                self.process_message(message: message)
+              end
             end
-            
-            @bot.listen do |message|
-              self.process_message(message: message)
-            end
+          rescue Telegram::Bot::Exceptions::ResponseError => e
+            logger.error "Disconnected: #{e.message}"
+            sleep @disconnect_sleep_time
+          rescue Faraday::ConnectionFailed => e
+            logger.error "Disconnected: #{e.message}"
+            sleep @disconnect_sleep_time
+          rescue RuntimeError => e
+            logger.error "Error: #{e.message}\n#{e.backtrace}"
+            raise
           end
-        rescue Telegram::Bot::Exceptions::ResponseError => e
-          logger.error "Disconnected: #{e.message}"
-          sleep @disconnect_sleep_time
-        rescue Faraday::ConnectionFailed => e
-          logger.error "Disconnected: #{e.message}"
-          sleep @disconnect_sleep_time
-        rescue RuntimeError => e
-          logger.error "Error: #{e.message}\n#{e.backtrace}"
-          raise
         end
       end
     end
@@ -97,7 +108,13 @@ module TGBotBase
                    text: text,
                    source_time: to_message.date)
     end
-    
+
+    def send_message_private_answer(to_message:, text:)
+      send_message(chat_id: to_message.from.id,
+                   text: text,
+                   source_time: to_message.date)
+    end
+
     protected
     
     def logger
@@ -115,7 +132,7 @@ module TGBotBase
     private
     
     def get_config_file_path(config_file_name)
-      [__dir__, '/usr/local/etc/', '/etc/'].each do |config_dir|
+      ['.', '/usr/local/etc/', '/etc/'].each do |config_dir|
         config_file_path = File.join(config_dir, config_file_name)
         if File.exist?(config_file_path)
           return config_file_path
@@ -132,7 +149,10 @@ module TGBotBase
     
     attr_reader :database_file
     
-    def initialize(logger:, config_path: nil, mute_before: nil)
+    def initialize(logger:,
+                   config_path: nil,
+                   config_name: nil,
+                   mute_before: nil)
       super
       @database_file = config['database_file']
     end
