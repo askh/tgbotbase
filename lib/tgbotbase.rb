@@ -36,10 +36,8 @@ module TGBotBase
     end
     
     def run
-      pid_file_block_app =
-        PidFileBlock::Application.new(piddir: @config['pidfile_dir'],
-                                      pidfile: @config['pidfile_name'])
-      pid_file_block_app.run do
+      PidFileBlock::Application.run(piddir: @config['pidfile_dir'],
+                                    pidfile: @config['pidfile_name']) do
         while true
           begin
             Telegram::Bot::Client.run(config['telegram_token'],
