@@ -1,5 +1,5 @@
 require "pid_file_block"
-require "pid_file_block/applicaton"
+require "pid_file_block/application"
 
 module TGBotBase
   
